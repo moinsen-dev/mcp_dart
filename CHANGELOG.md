@@ -1,3 +1,7 @@
+## 0.6.2
+
+- Remove trailing CR before processing the lines
+
 ## 0.6.1
 
 - Fix issue with CallToolResult not including metadata
