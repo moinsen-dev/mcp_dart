@@ -1,3 +1,7 @@
+## 0.6.3
+
+- Replace print statements with lightweight logging implementation
+
 ## 0.6.2
 
 - Remove trailing CR before processing the lines
