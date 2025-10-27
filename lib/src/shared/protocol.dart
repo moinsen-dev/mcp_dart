@@ -197,10 +197,24 @@ abstract class Protocol {
   /// The [Protocol] object assumes ownership of the [Transport], replacing any
   /// callbacks that have already been set, and expects that it is the only
   /// user of the [Transport] instance going forward.
+  ///
+  /// If the protocol is already connected to a transport, this method will
+  /// reuse the existing transport connection. This allows the same Protocol
+  /// instance to handle multiple sequential client connections through the
+  /// same Transport (e.g., WebSocket server accepting multiple clients).
   Future<void> connect(Transport transport) async {
-    if (_transport != null) {
-      throw StateError("Protocol already connected to a transport.");
+    // If we're being passed the same transport instance we're already
+    // connected to, this is a reconnection scenario (new client connecting
+    // to the same WebSocket server). Just update our reference and continue.
+    if (_transport == transport) {
+      // Already connected to this transport, no need to reconnect
+      return;
     }
+
+    if (_transport != null) {
+      throw StateError("Protocol already connected to a different transport.");
+    }
+
     _transport = transport;
     _transport!.onclose = _onclose;
     _transport!.onerror = _onerror;
@@ -245,6 +259,7 @@ abstract class Protocol {
   /// The [onclose] callback will be invoked by the transport's handler.
   Future<void> close() async {
     await _transport?.close();
+    _transport = null;
   }
 
   /// Sets up the timeout mechanism for an outgoing request.
@@ -329,7 +344,12 @@ abstract class Protocol {
     _progressHandlers.clear();
     _timeoutInfo.clear();
     _requestHandlerAbortControllers.clear();
-    _transport = null;
+
+    // Note: We intentionally do NOT set _transport = null here.
+    // For server-side transports that accept multiple sequential client connections,
+    // the transport instance remains alive even after a client disconnects.
+    // Setting _transport = null would break subsequent client connections.
+    // The transport will be set to null only in the close() method when explicitly closing.
 
     pendingTimeouts.forEach((_, info) => info.timeoutTimer.cancel());
     pendingRequestHandlers.forEach((_, controller) => controller.abort());
